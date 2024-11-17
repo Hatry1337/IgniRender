@@ -1,0 +1,45 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IgniRenderEngine</title>
+    <style>
+        .column {
+            float: left;
+        }
+        .row:after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        .row {
+            display: flex;
+        }
+        .column {
+            flex: 50%;
+        }
+    </style>
+    <script type="module" src="script.js"></script>
+</head>
+<body>
+    <div class="row">
+        <canvas id="viewport" width="800" height="600" style="border:1px solid #000000;"></canvas>
+        <div class="column">
+<!--            <div class="row">-->
+<!--                <label for="fov_input"></label><input type="number" id="fov_input" placeholder="FOV">-->
+<!--                <button id="fov_btn" onclick="sock.send(JSON.stringify({ input: { type: 'set_fov', value: parseInt(document.getElementById('fov_input').value) } }))">Set</button>-->
+<!--            </div>-->
+            <div class="row">
+                <input type="checkbox" id="toggle_grid">Grid</input>
+            </div>
+            <div class="row">
+                <input type="checkbox" id="toggle_axes">Axes Marker</input>
+            </div>
+            <div class="row">
+                <input type="checkbox" id="toggle_model">Model</input>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
