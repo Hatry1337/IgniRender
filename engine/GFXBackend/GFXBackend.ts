@@ -1,5 +1,7 @@
-import { GFXContext } from "./GFXContext.js";
+import { GFXViewport } from "./GFXViewport";
+import { GFXScene } from "./GFXScene";
 
-export abstract class GFXBackend {
-    public abstract createContext(width: number, height: number): GFXContext;
+export interface GFXBackend {
+    viewport: GFXViewport;
+    scene: GFXScene;
 }

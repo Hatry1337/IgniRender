@@ -12,7 +12,7 @@ export class ViewportControls {
         document.addEventListener("mousemove", async (event) => {
             if(event.buttons === 4) {
                 this.camera.Move({
-                    x: -event.movementX / 10,
+                    x: event.movementX / 10,
                     y: -event.movementY / 10,
                     z: 0
                 });

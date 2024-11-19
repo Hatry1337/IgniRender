@@ -3,7 +3,7 @@ import {
     convertRangeVec2,
     getFaceCenter,
     getFaceNormal,
-    getNormalColor,
+    getNormalColor, mat4Create, mat4Perspective, mat4Rotate, mat4Translate,
     matrix4MultPoint,
     Path, v2fill, v2zero,
     v3copy,
@@ -19,6 +19,8 @@ import {
 import SceneObject from "./SceneObject.js";
 import { GFXContext } from "../GFXBackend/GFXContext.js";
 import { Color } from "../GFXBackend/Structures";
+import { GFXScene } from "../GFXBackend/GFXScene";
+import { GFXBackend } from "../GFXBackend/GFXBackend";
 
 export default class Camera extends SceneObject{
     public planeWidth: number = 4;
@@ -124,6 +126,34 @@ export default class Camera extends SceneObject{
         return out;
     }
 
+    public projectionMatrix(): Float32Array {
+        let top, bottom, left, right;
+
+        top = this.nearClipPlane * Math.tan((this.FOV * 0.0174533)/2);
+        bottom = -top;
+        right = top * this.planeHeight / this.planeWidth;
+        left = -right;
+
+        let mat = [
+            2*this.nearClipPlane/(right-left), 0, 0, 0,
+            0, 2*this.nearClipPlane/(top-bottom), 0, 0,
+            0, 0, -(this.farClipPlane+this.nearClipPlane)/(this.farClipPlane-this.nearClipPlane), -1,
+            -this.nearClipPlane*(right+left)/(right-left), -this.nearClipPlane*(top+bottom)/(top-bottom), 2*this.farClipPlane*this.nearClipPlane/(this.nearClipPlane-this.farClipPlane), 0
+        ]
+
+        return Float32Array.from(mat);
+    }
+
+    public viewMatrix(): Float32Array {
+        let mat = mat4Create();
+        mat4Translate(mat, mat, [this.position.x, this.position.y, -this.position.z]);
+        mat4Rotate(mat, mat, this.rotation.x, [1, 0, 0]);
+        mat4Rotate(mat, mat, this.rotation.y, [0, 1, 0]);
+        mat4Rotate(mat, mat, this.rotation.z, [0, 0, 1]);
+
+        return mat;
+    }
+
     public Project(point: vec3, cords_min?: vec2, cords_max?: vec2): vec2 {
         if(this.projection === "perspective"){
             //point = v3normalize(point);
@@ -181,10 +211,14 @@ export default class Camera extends SceneObject{
         }
     }
 
-    public Render(ctx: GFXContext): GFXContext {
-        ctx.fillBackground({ red: 1, green: 1, blue: 1, alpha: 1});
+    public Render(backend: GFXBackend) {
+        backend.viewport.clear({ red: 1.0, green: 1.0, blue: 1.0, alpha: 1.0 });
 
         let rend_obj = this.scene.objects.filter(o => o.visible && o.id !== this.id);
+
+        let vertexBuffer: number[] = []
+        let indicesBuffer: number[] = [];
+        let colorsBuffer: number[] = [];
 
         for(let obj of rend_obj){
             let prims = obj.Draw();
@@ -205,32 +239,34 @@ export default class Camera extends SceneObject{
 
             for(let p of prims){
                 if(p.isPath()){
-                    //let points = p.points.map(p => this.Project(v3sum(v3rotate(p, this.rotation), this.position)));
-                    let points = p.points
-                        .map(p => this.Project(this.worldToCameraSpace(p), v2zero(), {
-                            x: ctx.getWidth(),
-                            y: ctx.getHeight()
-                        }));
-
-                    ctx.drawPath(points, p.thickness ?? 1, p.color);
+                    continue;
+                    // //let points = p.points.map(p => this.Project(v3sum(v3rotate(p, this.rotation), this.position)));
+                    // let points = p.points
+                    //     .map(p => this.Project(this.worldToCameraSpace(p), v2zero(), {
+                    //         x: backend.viewport.getWidth(),
+                    //         y: backend.viewport.getHeight()
+                    //     }));
+                    //
+                    // ctx.drawPath(points, p.thickness ?? 1, p.color);
                 }else if(p.isFace()) {
                     p.center = p.center ?? getFaceCenter(p);
                     p.normal = p.normal ?? getFaceNormal(p);
 
-                    let draw_flag = false;
-
-                    if(this.renderStyle === "wireframe"){
-                        draw_flag = true;
-                    }else if(v3dot(v3sub(p.vertices[0], camera_pos), p.normal) >= 0){
-                        draw_flag = true;
-                    }
+                    let draw_flag = true;
+                    // let draw_flag = false;
+                    //
+                    // if(this.renderStyle === "wireframe"){
+                    //     draw_flag = true;
+                    // }else if(v3dot(v3sub(p.vertices[0], camera_pos), p.normal) >= 0){
+                    //     draw_flag = true;
+                    // }
 
                     if(draw_flag){
                        // let verts_prj = p.vertices.map(p => this.Project(v3sum(v3rotate(p, this.rotation), this.position)));
-                        let verts_prj = p.vertices.map(p => this.Project(this.worldToCameraSpace(p), v2zero(), {
-                            x: ctx.getWidth(),
-                            y: ctx.getHeight()
-                        }));
+                       //  let verts_prj = p.vertices.map(p => this.Project(this.worldToCameraSpace(p), v2zero(), {
+                       //      x: backend.viewport.getWidth(),
+                       //      y: backend.viewport.getHeight()
+                       //  }));
 
                         let color: Color | undefined;
                         if(this.renderStyle === "flat"){
@@ -242,24 +278,42 @@ export default class Camera extends SceneObject{
                             color = { red: brightness, green: brightness, blue: brightness, alpha: 1 };
                         }
 
-                        if(verts_prj.length === 3) {
-                            ctx.drawTriangle({
-                                points: verts_prj as [vec2, vec2, vec2],
-                                color
-                            });
+
+                        if(p.vertices.length === 3) {
+                            for(let v of p.vertices) {
+                                vertexBuffer.push(v.x, v.y, v.z);
+                                if(color) {
+                                    colorsBuffer.push(color.red, color.green, color.blue, color.alpha);
+                                } else {
+                                    colorsBuffer.push(0.0, 0.0, 0.0, 1.0);
+                                }
+                            }
+
+                            let currentIndex = indicesBuffer.length;
+                            indicesBuffer.push(currentIndex, currentIndex+1, currentIndex+2);
+
+
+                            // ctx.drawTriangle({
+                            //     points: verts_prj as [vec2, vec2, vec2],
+                            //     color
+                            // });
                         } else {
-                            ctx.drawNGon(verts_prj, color);
+                            //console.log(`N-GON detected in obj=${obj.name}. we're currently not supporting that.`)
+                            //ctx.drawNGon(verts_prj, color);
                         }
                     }
                 } else if (p.isText()) {
-                    let pos = this.Project(this.worldToCameraSpace(p.pos), v2zero(), {
-                        x: ctx.getWidth(),
-                        y: ctx.getHeight()
-                    });
-                    ctx.drawText(p.text, pos, p.size, p.color);
+                    // let pos = this.Project(this.worldToCameraSpace(p.pos), v2zero(), {
+                    //     x: ctx.getWidth(),
+                    //     y: ctx.getHeight()
+                    // });
+                    // ctx.drawText(p.text, pos, p.size, p.color);
                 }
             }
         }
-        return ctx;
+        backend.scene.writePositions(new Float32Array(vertexBuffer));
+        backend.scene.writeIndices(new Uint16Array(indicesBuffer));
+        backend.scene.writeColors(new Float32Array(colorsBuffer));
+        backend.scene.render(this.viewMatrix(), this.projectionMatrix());
     }
 }
