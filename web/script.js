@@ -43,9 +43,9 @@ setInterval(() => {
 }, 1000);
 
 (async () => {
-    let obj = await fetch("/web/models/xyzcube.obj");
+    let obj = await fetch("/web/models/car_tri.obj");
     let model = IgniRender.LoadOBJModel("cat", await obj.text());
-    model.SetSize({ x: 1, y: 1, z: 1 });
+    model.SetSize({ x: 10, y: 10, z: 10 });
     scene.addObject(model);
 
     document.getElementById("toggle_axes").addEventListener("change", (e) => {
@@ -62,102 +62,6 @@ setInterval(() => {
 
     while (true) {
         cam.Render(backend);
-        // backend.viewport.clear({ red: 1, green: 1, blue: 1, alpha: 1});
-        // const positions = [
-        //     // Front face
-        //     -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0, 1.0,
-        //
-        //     // Back face
-        //     -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0, -1.0,
-        //
-        //     // Top face
-        //     -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, -1.0,
-        //
-        //     // Bottom face
-        //     -1.0, -1.0, -1.0, 1.0, -1.0, -1.0, 1.0, -1.0, 1.0, -1.0, -1.0, 1.0,
-        //
-        //     // Right face
-        //     1.0, -1.0, -1.0, 1.0, 1.0, -1.0, 1.0, 1.0, 1.0, 1.0, -1.0, 1.0,
-        //
-        //     // Left face
-        //     -1.0, -1.0, -1.0, -1.0, -1.0, 1.0, -1.0, 1.0, 1.0, -1.0, 1.0, -1.0,
-        // ];
-        // const faceColors = [
-        //     [1.0, 1.0, 1.0, 1.0], // Front face: white
-        //     [1.0, 0.0, 0.0, 1.0], // Back face: red
-        //     [0.0, 1.0, 0.0, 1.0], // Top face: green
-        //     [0.0, 0.0, 1.0, 1.0], // Bottom face: blue
-        //     [1.0, 1.0, 0.0, 1.0], // Right face: yellow
-        //     [1.0, 0.0, 1.0, 1.0], // Left face: purple
-        // ];
-        // const indices = [
-        //     0,
-        //     1,
-        //     2,
-        //     0,
-        //     2,
-        //     3, // front
-        //     4,
-        //     5,
-        //     6,
-        //     4,
-        //     6,
-        //     7, // back
-        //     8,
-        //     9,
-        //     10,
-        //     8,
-        //     10,
-        //     11, // top
-        //     12,
-        //     13,
-        //     14,
-        //     12,
-        //     14,
-        //     15, // bottom
-        //     16,
-        //     17,
-        //     18,
-        //     16,
-        //     18,
-        //     19, // right
-        //     20,
-        //     21,
-        //     22,
-        //     20,
-        //     22,
-        //     23, // left
-        // ];
-        // var colors = [];
-        //
-        // for (var j = 0; j < faceColors.length; ++j) {
-        //     const c = faceColors[j];
-        //     // Repeat each color four times for the four vertices of the face
-        //     colors = colors.concat(c, c, c, c);
-        // }
-        //
-        // backend.scene.writePositions(new Float32Array(positions));
-        // backend.scene.writeIndices(new Uint16Array(indices));
-        // backend.scene.writeColors(new Float32Array(colors));
-        //
-        // const fieldOfView = (45 * Math.PI) / 180; // in radians
-        // const aspect = canvas.clientWidth / canvas.clientHeight;
-        // const zNear = 0.1;
-        // const zFar = 100.0;
-        // const projectionMatrix = mat4Create();
-        //
-        // // note: glmatrix.js always has the first argument
-        // // as the destination to receive the result.
-        // mat4Perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
-        //
-        // const viewMatrix = mat4Create();
-        // mat4Translate(
-        //     viewMatrix, // destination matrix
-        //     viewMatrix, // matrix to translate
-        //     [-0.0, 0.0, -6.0]
-        // ); // amount to translate
-        //
-        // backend.scene.render(viewMatrix, projectionMatrix);
         frames++;
         await new Promise(res => setTimeout(res, 1));
     }

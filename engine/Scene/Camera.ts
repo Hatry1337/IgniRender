@@ -5,7 +5,7 @@ import {
     getFaceNormal,
     getNormalColor, mat4Create, mat4Perspective, mat4Rotate, mat4Translate,
     matrix4MultPoint,
-    Path, v2fill, v2zero,
+    Path, Primitive, v2fill, v2zero,
     v3copy,
     v3distance,
     v3dot, v3fill,
@@ -23,8 +23,6 @@ import { GFXScene } from "../GFXBackend/GFXScene";
 import { GFXBackend } from "../GFXBackend/GFXBackend";
 
 export default class Camera extends SceneObject{
-    public planeWidth: number = 4;
-    public planeHeight: number = 3;
     public renderStyle: RenderStyle = "flat";
     public projection: RenderProjection = "perspective";
     public FOV: number = 90;
@@ -126,12 +124,12 @@ export default class Camera extends SceneObject{
         return out;
     }
 
-    public projectionMatrix(): Float32Array {
+    public projectionMatrix(width: number, height: number): Float32Array {
         let top, bottom, left, right;
 
         top = this.nearClipPlane * Math.tan((this.FOV * 0.0174533)/2);
         bottom = -top;
-        right = top * this.planeHeight / this.planeWidth;
+        right = top * width / height;
         left = -right;
 
         let mat = [
@@ -154,7 +152,7 @@ export default class Camera extends SceneObject{
         return mat;
     }
 
-    public Project(point: vec3, cords_min?: vec2, cords_max?: vec2): vec2 {
+    public Project(width: number, height: number, point: vec3, cords_min?: vec2, cords_max?: vec2): vec2 {
         if(this.projection === "perspective"){
             //point = v3normalize(point);
             //
@@ -176,7 +174,7 @@ export default class Camera extends SceneObject{
 
             top = this.nearClipPlane * Math.tan((this.FOV * 0.0174533)/2);
             bottom = -top;
-            right = top * this.planeHeight / this.planeWidth;
+            right = top * width / height;
             left = -right;
 
             let mat = [
@@ -216,12 +214,26 @@ export default class Camera extends SceneObject{
 
         let rend_obj = this.scene.objects.filter(o => o.visible && o.id !== this.id);
 
-        let vertexBuffer: number[] = []
-        let indicesBuffer: number[] = [];
-        let colorsBuffer: number[] = [];
-
-        for(let obj of rend_obj){
+        let drawnObjects: Primitive[][] = [];
+        let facesCount = 0;
+        for(let obj of rend_obj) {
             let prims = obj.Draw();
+            drawnObjects.push(prims);
+            facesCount += prims.filter(p => p.isFace()).length;
+        }
+
+        // 3 vertices per face, 3 coords per vertex
+        let vertexBuffer = new Float32Array(facesCount * 3 * 3);
+        // 3 vertices per face
+        let indicesBuffer = new Uint16Array(facesCount * 3);
+        // 3 vertices per face, 4 color values per vertex
+        let colorsBuffer = new Float32Array(facesCount * 3 * 4);
+
+        let vertexI = 0;
+        let indicesI = 0;
+        let colorI = 0;
+
+        for(let i in drawnObjects) {
 
             // for(let p of prims){
             //     if(p.isFace()){
@@ -231,13 +243,14 @@ export default class Camera extends SceneObject{
             //     }
             // }
 
-            let camera_pos = v3rotate(this.position, v3mul(this.rotation, v3fill(-1)));
+            // #HEAVY CODE
+            //let camera_pos = v3rotate(this.position, v3mul(this.rotation, v3fill(-1)));
 
-            prims.sort((a, b) => {
-                return a.shortestDistance(camera_pos) - b.shortestDistance(camera_pos);
-            });
+            // prims.sort((a, b) => {
+            //     return a.shortestDistance(camera_pos) - b.shortestDistance(camera_pos);
+            // });
 
-            for(let p of prims){
+            for(let p of drawnObjects[i]){
                 if(p.isPath()){
                     continue;
                     // //let points = p.points.map(p => this.Project(v3sum(v3rotate(p, this.rotation), this.position)));
@@ -281,24 +294,36 @@ export default class Camera extends SceneObject{
 
                         if(p.vertices.length === 3) {
                             for(let v of p.vertices) {
-                                vertexBuffer.push(v.x, v.y, v.z);
+                                vertexBuffer[vertexI] = v.x;
+                                vertexBuffer[vertexI+1] = v.y;
+                                vertexBuffer[vertexI+2] = v.z;
+                                vertexI += 3;
+
                                 if(color) {
-                                    colorsBuffer.push(color.red, color.green, color.blue, color.alpha);
+                                    colorsBuffer[colorI] = color.red;
+                                    colorsBuffer[colorI+1] = color.green;
+                                    colorsBuffer[colorI+2] = color.blue;
+                                    colorsBuffer[colorI+3] = color.alpha;
                                 } else {
-                                    colorsBuffer.push(0.0, 0.0, 0.0, 1.0);
+                                    colorsBuffer[colorI] = 0;
+                                    colorsBuffer[colorI+1] = 0;
+                                    colorsBuffer[colorI+2] = 0;
+                                    colorsBuffer[colorI+3] = 0;
                                 }
+                                colorI += 4;
                             }
 
-                            let currentIndex = indicesBuffer.length;
-                            indicesBuffer.push(currentIndex, currentIndex+1, currentIndex+2);
-
+                            indicesBuffer[indicesI] = indicesI;
+                            indicesBuffer[indicesI+1] = indicesI+1;
+                            indicesBuffer[indicesI+2] = indicesI+2;
+                            indicesI += 3;
 
                             // ctx.drawTriangle({
                             //     points: verts_prj as [vec2, vec2, vec2],
                             //     color
                             // });
                         } else {
-                            //console.log(`N-GON detected in obj=${obj.name}. we're currently not supporting that.`)
+                            console.log(`N-GON detected. we're currently not supporting that.`)
                             //ctx.drawNGon(verts_prj, color);
                         }
                     }
@@ -311,9 +336,12 @@ export default class Camera extends SceneObject{
                 }
             }
         }
-        backend.scene.writePositions(new Float32Array(vertexBuffer));
-        backend.scene.writeIndices(new Uint16Array(indicesBuffer));
-        backend.scene.writeColors(new Float32Array(colorsBuffer));
-        backend.scene.render(this.viewMatrix(), this.projectionMatrix());
+        backend.scene.writePositions(vertexBuffer);
+        backend.scene.writeIndices(indicesBuffer);
+        backend.scene.writeColors(colorsBuffer);
+        backend.scene.render(
+            this.viewMatrix(),
+            this.projectionMatrix(backend.viewport.getWidth(), backend.viewport.getHeight())
+        );
     }
 }
